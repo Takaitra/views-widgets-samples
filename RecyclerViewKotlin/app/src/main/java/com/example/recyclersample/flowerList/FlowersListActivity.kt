@@ -20,7 +20,12 @@ import android.app.Activity
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Handler
+import android.os.HandlerThread
+import android.util.Log
+import android.view.FrameMetrics
 import android.view.View
+import android.view.Window
 import androidx.activity.viewModels
 import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -30,6 +35,7 @@ import com.example.recyclersample.R
 import com.example.recyclersample.addFlower.FLOWER_DESCRIPTION
 import com.example.recyclersample.addFlower.FLOWER_NAME
 import com.example.recyclersample.data.Flower
+import java.util.concurrent.TimeUnit
 
 const val FLOWER_ID = "flower id"
 
@@ -38,6 +44,8 @@ class FlowersListActivity : AppCompatActivity() {
     private val flowersListViewModel by viewModels<FlowersListViewModel> {
         FlowersListViewModelFactory(this)
     }
+    private lateinit var listener: Window.OnFrameMetricsAvailableListener
+    private lateinit var handler: Handler
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,6 +71,31 @@ class FlowersListActivity : AppCompatActivity() {
         fab.setOnClickListener {
             fabOnClick()
         }
+
+        listener = Window.OnFrameMetricsAvailableListener { window, frameMetrics, dropCountSinceLastInvocation ->
+            val totalDurationNanos = frameMetrics.getMetric(FrameMetrics.TOTAL_DURATION)
+            val totalDurationMs = TimeUnit.NANOSECONDS.toMillis(totalDurationNanos)
+            if (totalDurationMs > 10000) {
+                Log.w("FrameMetrics", "totalDurationMs: $totalDurationMs")
+            } else {
+                Log.i("FrameMetrics", "totalDurationMs: $totalDurationMs")
+            }
+        }
+        val handlerThread = HandlerThread("frame_metrics", 10)
+        handlerThread.start()
+        handler = Handler(handlerThread.looper)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Log.i("FrameMetrics", "resume")
+        window.addOnFrameMetricsAvailableListener(listener, handler)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Log.i("FrameMetrics", "pause")
+        window.removeOnFrameMetricsAvailableListener(listener)
     }
 
     /* Opens FlowerDetailActivity when RecyclerView item is clicked. */
